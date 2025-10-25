@@ -14,6 +14,7 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Event,
@@ -32,6 +33,7 @@ const Events = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('upcoming');
@@ -44,6 +46,7 @@ const Events = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
+      setError('');
       const params = {
         limit: 20,
         sort: 'startDate',
@@ -61,6 +64,7 @@ const Events = () => {
       setEvents(response.data.events || []);
     } catch (error) {
       console.error('Error fetching events:', error);
+      setError('Failed to load events. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -123,6 +127,12 @@ const Events = () => {
           Discover and participate in campus events and activities
         </Typography>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Filters and Search */}
       <Card sx={{ mb: 4 }}>
@@ -229,8 +239,8 @@ const Events = () => {
                         variant="outlined"
                       />
                       <Chip
-                        label={statusFilter}
-                        color={getStatusColor(statusFilter)}
+                        label={event.status || statusFilter}
+                        color={getStatusColor(event.status || statusFilter)}
                         size="small"
                       />
                     </Box>

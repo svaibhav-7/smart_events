@@ -11,12 +11,15 @@ import {
   CardContent,
   CircularProgress,
   useTheme,
+  Alert,
 } from '@mui/material';
 import { Send, SmartToy, Person } from '@mui/icons-material';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const Chatbot = () => {
   const theme = useTheme();
+  const { user } = useAuth();
   const [messages, setMessages] = useState([
     {
       text: "Hello! I'm your campus assistant. How can I help you today?",
@@ -26,6 +29,7 @@ const Chatbot = () => {
   ]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -38,6 +42,9 @@ const Chatbot = () => {
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
+
+    // Clear any previous errors
+    setError('');
 
     const userMessage = {
       text: inputMessage,
@@ -52,6 +59,8 @@ const Chatbot = () => {
     try {
       const token = localStorage.getItem('token');
       console.log('Sending message to chatbot:', inputMessage);
+      console.log('User authenticated:', !!user);
+      console.log('Token available:', !!token);
       
       const response = await axios.post(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/chatbot`,
@@ -81,6 +90,7 @@ const Chatbot = () => {
       
       if (error.response?.status === 401) {
         errorText = "Please log in to use the chatbot.";
+        setError('Authentication required. Please log in to use the chatbot.');
       } else if (error.response?.status === 400) {
         errorText = "I didn't understand that. Could you please rephrase your question?";
       } else if (error.response?.data?.message) {
@@ -145,6 +155,13 @@ const Chatbot = () => {
             </Typography>
           </Box>
         </Box>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ m: 2 }}>
+            {error}
+          </Alert>
+        )}
 
         {/* Messages */}
         <Box

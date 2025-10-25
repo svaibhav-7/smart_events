@@ -34,7 +34,6 @@ const CreateEvent = () => {
     location: '',
     maxAttendees: '',
     registrationDeadline: '',
-    isPublic: true,
   });
 
   const categories = ['academic', 'cultural', 'sports', 'workshop', 'seminar', 'social', 'other'];
@@ -60,16 +59,28 @@ const CreateEvent = () => {
         return;
       }
 
+      // Validate that all required fields are filled
+      if (!formData.title || !formData.description || !formData.startDate || 
+          !formData.endDate || !formData.startTime || !formData.endTime || 
+          !formData.venue || !formData.location) {
+        setError('Please fill in all required fields');
+        setLoading(false);
+        return;
+      }
+
       const eventData = {
         ...formData,
         maxAttendees: formData.maxAttendees ? parseInt(formData.maxAttendees) : undefined,
+        registrationDeadline: formData.registrationDeadline || undefined,
       };
 
+      console.log('Sending event data:', eventData);
       const response = await eventsAPI.createEvent(eventData);
       
       // Navigate to the created event
       navigate(`/events/${response.data.event._id}`);
     } catch (err) {
+      console.error('Error creating event:', err);
       setError(err.response?.data?.message || 'Failed to create event');
     } finally {
       setLoading(false);
