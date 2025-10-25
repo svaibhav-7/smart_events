@@ -1,0 +1,19 @@
+{
+  "name": "smart-campus-ecosystem",
+  "version": "1.0.0",
+  "description": "A unified digital platform for campus life activities",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run mobile\"",
+    "server": "cd backend && npm run dev",
+    "client": "cd web && npm start",
+    "mobile": "cd mobile && npm start",
+    "install-all": "npm install && cd backend && npm install && cd ../web && npm install && cd ../mobile && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "keywords": ["campus", "smart", "ecosystem", "events", "lost-found"],
+  "author": "",
+  "license": "MIT"
+}
