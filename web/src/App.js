@@ -17,12 +17,20 @@ import ClubDetails from './pages/ClubDetails';
 import CreateClub from './pages/Clubs/CreateClub';
 import LostFound from './pages/LostFound';
 import CreateLostFound from './pages/LostFound/CreateLostFound';
+import EditLostFound from './pages/LostFound/EditLostFound';
 import Feedback from './pages/Feedback';
 import CreateFeedback from './pages/Feedback/CreateFeedback';
+import ManageFeedback from './pages/Feedback/ManageFeedback';
 import Announcements from './pages/Announcements';
 import CreateAnnouncement from './pages/Announcements/CreateAnnouncement';
+import EditAnnouncement from './pages/Announcements/EditAnnouncement';
+import AnnouncementDetail from './pages/Announcements/AnnouncementDetail';
 import Approvals from './pages/Admin/Approvals';
+import Chatbot from './pages/Chatbot';
 import { useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { SocketProvider } from './contexts/SocketContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
 const App = () => {
@@ -33,11 +41,14 @@ const App = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      {user && <Sidebar />}
-      <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
-        {user && <Navbar />}
-        <Container maxWidth="xl" sx={{ mt: user ? 4 : 0, mb: 4 }}>
+    <ThemeProvider>
+      <SocketProvider>
+        <NotificationProvider>
+          <Box sx={{ display: 'flex' }}>
+            {user && <Sidebar />}
+            <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default', minHeight: '100vh' }}>
+              {user && <Navbar />}
+              <Container maxWidth="xl" sx={{ mt: user ? 4 : 0, mb: 4 }}>
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
@@ -85,6 +96,12 @@ const App = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/lost-found/:id/edit" element={
+              <ProtectedRoute>
+                <EditLostFound />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/feedback" element={
               <ProtectedRoute>
                 <Feedback />
@@ -94,6 +111,12 @@ const App = () => {
             <Route path="/feedback/submit" element={
               <ProtectedRoute>
                 <CreateFeedback />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/feedback/manage" element={
+              <ProtectedRoute>
+                <ManageFeedback />
               </ProtectedRoute>
             } />
             
@@ -127,9 +150,27 @@ const App = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="/announcements/:id" element={
+              <ProtectedRoute>
+                <AnnouncementDetail />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/announcements/:id/edit" element={
+              <ProtectedRoute>
+                <EditAnnouncement />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/admin/approvals" element={
               <ProtectedRoute>
                 <Approvals />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/chatbot" element={
+              <ProtectedRoute>
+                <Chatbot />
               </ProtectedRoute>
             } />
             
@@ -144,6 +185,9 @@ const App = () => {
         </Container>
       </Box>
     </Box>
+    </NotificationProvider>
+    </SocketProvider>
+    </ThemeProvider>
   );
 };
 

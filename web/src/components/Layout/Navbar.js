@@ -11,6 +11,9 @@ import {
   Box,
   InputBase,
   Chip,
+  Divider,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -19,13 +22,22 @@ import {
   Settings,
   Person,
   School,
+  Brightness4,
+  Brightness7,
+  Event as EventIcon,
+  Campaign as CampaignIcon,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { mode, toggleTheme } = useTheme();
+  const { notifications, getUnreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,6 +98,46 @@ const Navbar = () => {
     }
   };
 
+  const handleNotificationClick = (notification) => {
+    markAsRead(notification.id);
+    
+    // Navigate based on notification type
+    if (notification.type === 'event' && notification.data) {
+      navigate(`/events/${notification.data._id}`);
+    } else if (notification.type === 'announcement' && notification.data) {
+      navigate(`/announcements/${notification.data._id}`);
+    }
+    
+    handleNotificationMenuClose();
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'event':
+        return <EventIcon fontSize="small" />;
+      case 'announcement':
+        return <CampaignIcon fontSize="small" />;
+      default:
+        return <NotificationsIcon fontSize="small" />;
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const now = new Date();
+    const notifDate = new Date(timestamp);
+    const diffMs = now - notifDate;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+  };
+
   return (
     <AppBar position="static" color="primary">
       <Toolbar>
@@ -121,9 +173,19 @@ const Navbar = () => {
           color="inherit"
           onClick={handleNotificationMenuOpen}
         >
-          <Badge badgeContent={4} color="error">
+          <Badge badgeContent={getUnreadCount()} color="error">
             <NotificationsIcon />
           </Badge>
+        </IconButton>
+
+        {/* Dark Mode Toggle */}
+        <IconButton
+          size="large"
+          color="inherit"
+          onClick={toggleTheme}
+          title={mode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
         </IconButton>
 
         {/* Profile Menu */}
@@ -136,8 +198,10 @@ const Navbar = () => {
           onClick={handleProfileMenuOpen}
           color="inherit"
         >
-          <Avatar sx={{ width: 32, height: 32 }}>
-            {user?.firstName?.[0]}{user?.lastName?.[0]}
+          <Avatar src={user?.profilePicture} sx={{ width: 32, height: 32 }}>
+            {!user?.profilePicture && (
+              <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
+            )}
           </Avatar>
         </IconButton>
 
@@ -200,19 +264,72 @@ const Navbar = () => {
           }}
           open={Boolean(notificationAnchorEl)}
           onClose={handleNotificationMenuClose}
+          PaperProps={{
+            sx: { width: 360, maxHeight: 400 },
+          }}
         >
-          <MenuItem onClick={handleNotificationMenuClose}>
-            <Typography variant="body2">New event: Tech Talk</Typography>
-          </MenuItem>
-          <MenuItem onClick={handleNotificationMenuClose}>
-            <Typography variant="body2">Lost item found: iPhone</Typography>
-          </MenuItem>
-          <MenuItem onClick={handleNotificationMenuClose}>
-            <Typography variant="body2">Feedback response received</Typography>
-          </MenuItem>
-          <MenuItem onClick={handleNotificationMenuClose}>
-            <Typography variant="body2">Club meeting reminder</Typography>
-          </MenuItem>
+          <Box sx={{ px: 2, py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">Notifications</Typography>
+            {notifications.length > 0 && (
+              <IconButton size="small" onClick={markAllAsRead} title="Mark all as read">
+                <CheckCircle fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+          <Divider />
+          
+          {notifications.length === 0 ? (
+            <MenuItem disabled>
+              <Typography variant="body2" color="text.secondary">
+                No new notifications
+              </Typography>
+            </MenuItem>
+          ) : (
+            notifications.map((notification) => (
+              <MenuItem
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                sx={{
+                  backgroundColor: notification.read ? 'transparent' : 'action.hover',
+                  '&:hover': {
+                    backgroundColor: 'action.selected',
+                  },
+                }}
+              >
+                <ListItemIcon>
+                  {getNotificationIcon(notification.type)}
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" fontWeight={notification.read ? 'normal' : 'bold'}>
+                      {notification.title}
+                    </Typography>
+                  }
+                  secondary={
+                    <>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {notification.message}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatTimestamp(notification.timestamp)}
+                      </Typography>
+                    </>
+                  }
+                />
+              </MenuItem>
+            ))
+          )}
+          
+          {notifications.length > 0 && (
+            <>
+              <Divider />
+              <MenuItem onClick={() => { navigate('/notifications'); handleNotificationMenuClose(); }}>
+                <Typography variant="body2" color="primary" textAlign="center" width="100%">
+                  View All
+                </Typography>
+              </MenuItem>
+            </>
+          )}
         </Menu>
       </Toolbar>
     </AppBar>

@@ -255,6 +255,163 @@ class LostFoundController {
       res.status(500).json({ message: 'Server error' });
     }
   }
+
+  // Get matching suggestions for lost/found items
+  async getSuggestions(req, res) {
+    try {
+      const item = await LostFound.findById(req.params.id);
+
+      if (!item) {
+        return res.status(404).json({ message: 'Item not found' });
+      }
+
+      // Find opposite category items (lost items match with found, and vice versa)
+      const oppositeCategory = item.category === 'lost' ? 'found' : 'lost';
+
+      // Build matching query
+      const matchQuery = {
+        category: oppositeCategory,
+        status: 'open',
+        itemType: item.itemType, // Same item type
+        _id: { $ne: item._id } // Exclude current item
+      };
+
+      // Find similar items
+      let suggestions = await LostFound.find(matchQuery)
+        .populate('reportedBy', 'firstName lastName email')
+        .limit(10)
+        .sort({ createdAt: -1 });
+
+      // Calculate similarity scores based on description, location, and date
+      suggestions = suggestions.map(suggestion => {
+        let score = 0;
+
+        // Location similarity (simple string match)
+        if (item.location.toLowerCase() === suggestion.location.toLowerCase()) {
+          score += 50;
+        } else if (item.location.toLowerCase().includes(suggestion.location.toLowerCase()) ||
+                   suggestion.location.toLowerCase().includes(item.location.toLowerCase())) {
+          score += 25;
+        }
+
+        // Date proximity (within 7 days)
+        const daysDiff = Math.abs(
+          (new Date(item.dateLostOrFound) - new Date(suggestion.dateLostOrFound)) / (1000 * 60 * 60 * 24)
+        );
+        if (daysDiff <= 7) {
+          score += Math.max(30 - (daysDiff * 4), 0);
+        }
+
+        // Description keywords similarity
+        const itemWords = item.description.toLowerCase().split(/\s+/);
+        const suggestionWords = suggestion.description.toLowerCase().split(/\s+/);
+        const commonWords = itemWords.filter(word => 
+          word.length > 3 && suggestionWords.includes(word)
+        ).length;
+        score += Math.min(commonWords * 5, 20);
+
+        return {
+          ...suggestion.toObject(),
+          matchScore: Math.round(score)
+        };
+      });
+
+      // Sort by match score
+      suggestions.sort((a, b) => b.matchScore - a.matchScore);
+
+      res.json({ suggestions });
+    } catch (error) {
+      console.error('Get suggestions error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  // Mark items as matched
+  async matchItems(req, res) {
+    try {
+      const { matchedItemId } = req.body;
+      const item = await LostFound.findById(req.params.id);
+      const matchedItem = await LostFound.findById(matchedItemId);
+
+      if (!item || !matchedItem) {
+        return res.status(404).json({ message: 'Item(s) not found' });
+      }
+
+      // Verify user owns one of the items
+      const ownsItem = item.reportedBy.toString() === req.user._id.toString() ||
+                       matchedItem.reportedBy.toString() === req.user._id.toString();
+
+      if (!ownsItem && req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      // Update both items
+      item.status = 'matched';
+      item.matchedWith = matchedItemId;
+      await item.save();
+
+      matchedItem.status = 'matched';
+      matchedItem.matchedWith = item._id;
+      await matchedItem.save();
+
+      // Emit real-time updates
+      global.io.emit('items-matched', { item1: item, item2: matchedItem });
+
+      res.json({ 
+        message: 'Items matched successfully', 
+        item,
+        matchedItem 
+      });
+    } catch (error) {
+      console.error('Match items error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  // Get user's items
+  async getUserItems(req, res) {
+    try {
+      const items = await LostFound.find({ reportedBy: req.user._id })
+        .populate('reportedBy', 'firstName lastName email')
+        .populate('claimedBy', 'firstName lastName email')
+        .populate('matchedWith', 'title category itemType')
+        .sort({ createdAt: -1 });
+
+      res.json({ items });
+    } catch (error) {
+      console.error('Get user items error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  // Get statistics
+  async getStatistics(req, res) {
+    try {
+      const stats = {
+        total: await LostFound.countDocuments(),
+        lost: await LostFound.countDocuments({ category: 'lost' }),
+        found: await LostFound.countDocuments({ category: 'found' }),
+        open: await LostFound.countDocuments({ status: 'open' }),
+        claimed: await LostFound.countDocuments({ status: 'claimed' }),
+        resolved: await LostFound.countDocuments({ status: 'resolved' }),
+        matched: await LostFound.countDocuments({ status: 'matched' }),
+        urgent: await LostFound.countDocuments({ isUrgent: true }),
+      };
+
+      // Items by type
+      const itemsByType = await LostFound.aggregate([
+        { $group: { _id: '$itemType', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]);
+
+      stats.byType = itemsByType;
+
+      res.json({ stats });
+    } catch (error) {
+      console.error('Get statistics error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
 }
 
 module.exports = new LostFoundController();

@@ -23,6 +23,7 @@ import {
   ExpandMore,
   School,
   CheckCircle,
+  SmartToy,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -102,6 +103,11 @@ const Sidebar = () => {
       text: 'Announcements',
       icon: <Campaign />,
       path: '/announcements',
+    },
+    {
+      text: 'Chatbot',
+      icon: <SmartToy />,
+      path: '/chatbot',
     },
   ];
 

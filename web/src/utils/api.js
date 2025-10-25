@@ -76,6 +76,10 @@ export const lostFoundAPI = {
   deleteItem: (id) => api.delete(`/lost-found/${id}`),
   claimItem: (id) => api.post(`/lost-found/${id}/claim`),
   markResolved: (id) => api.post(`/lost-found/${id}/resolve`),
+  getSuggestions: (id) => api.get(`/lost-found/${id}/suggestions`),
+  matchItems: (id, matchedItemId) => api.post(`/lost-found/${id}/match`, { matchedItemId }),
+  getUserItems: () => api.get('/lost-found/user/items'),
+  getStatistics: () => api.get('/lost-found/statistics'),
 };
 
 // Feedback API

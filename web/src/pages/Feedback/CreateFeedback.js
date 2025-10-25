@@ -27,13 +27,33 @@ const CreateFeedback = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: 'academic',
+    category: 'suggestion',
     priority: 'medium',
-    isPublic: false,
+    department: 'academic',
+    isPublic: true, // Default to public so everyone can see
   });
 
-  const categories = ['academic', 'facilities', 'food', 'transport', 'other'];
-  const priorities = ['low', 'medium', 'high'];
+  const categories = [
+    { value: 'suggestion', label: 'Suggestion' },
+    { value: 'complaint', label: 'Complaint' },
+    { value: 'appreciation', label: 'Appreciation' },
+    { value: 'bug-report', label: 'Bug Report' },
+    { value: 'feature-request', label: 'Feature Request' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const departments = [
+    { value: 'academic', label: 'Academic' },
+    { value: 'administration', label: 'Administration' },
+    { value: 'facilities', label: 'Facilities' },
+    { value: 'it', label: 'IT' },
+    { value: 'library', label: 'Library' },
+    { value: 'cafeteria', label: 'Cafeteria' },
+    { value: 'security', label: 'Security' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const priorities = ['low', 'medium', 'high', 'urgent'];
 
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
@@ -115,8 +135,26 @@ const CreateFeedback = () => {
                     label="Category"
                   >
                     {categories.map(cat => (
-                      <MenuItem key={cat} value={cat}>
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      <MenuItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    label="Department"
+                  >
+                    {departments.map(dept => (
+                      <MenuItem key={dept.value} value={dept.value}>
+                        {dept.label}
                       </MenuItem>
                     ))}
                   </Select>
@@ -148,12 +186,13 @@ const CreateFeedback = () => {
                       checked={formData.isPublic}
                       onChange={handleChange}
                       name="isPublic"
+                      color="primary"
                     />
                   }
-                  label="Make this feedback public (visible to all students)"
+                  label="Make this feedback public (visible to all users)"
                 />
                 <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
-                  Public feedback can be voted on by other students
+                  ✓ Recommended: Public feedback helps the community and can be voted on by others
                 </Typography>
               </Grid>
 

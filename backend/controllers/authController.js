@@ -138,7 +138,7 @@ class AuthController {
 
   async updateProfile(req, res) {
     try {
-      const { firstName, lastName, phone, department } = req.body;
+      const { firstName, lastName, phone, department, profilePicture } = req.body;
       const userId = req.user._id;
 
       const updateData = {};
@@ -146,6 +146,7 @@ class AuthController {
       if (lastName) updateData.lastName = lastName;
       if (phone) updateData.phone = phone;
       if (department) updateData.department = department;
+      if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
 
       const user = await User.findByIdAndUpdate(userId, updateData, { new: true });
       res.json({ message: 'Profile updated successfully', user });

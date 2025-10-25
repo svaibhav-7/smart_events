@@ -3,6 +3,7 @@ class ChatbotController {
     // Google Generative AI integration (optional)
     this.genAI = null;
     this.model = null;
+    this.useAI = false;
 
     // Try to initialize if package is available
     try {
@@ -10,9 +11,14 @@ class ChatbotController {
       if (process.env.GEMINI_API_KEY) {
         this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         this.model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+        this.useAI = true;
+        console.log('✓ Gemini AI initialized successfully');
+      } else {
+        console.log('⚠ Gemini API key not found, using fallback responses');
       }
     } catch (error) {
-      console.log('Google Generative AI not available, using fallback responses');
+      console.log('⚠ Google Generative AI package not available:', error.message);
+      console.log('  Using fallback responses');
     }
   }
 
@@ -20,14 +26,18 @@ class ChatbotController {
     try {
       const { message } = req.body;
 
+      console.log('Chatbot request received:', message);
+
       if (!message) {
         return res.status(400).json({ message: 'Message is required' });
       }
 
-      // Check if Gemini API is available
-      if (this.model) {
-        // Use Gemini API
-        const campusPrompt = `
+      // Check if Gemini AI is available and initialized
+      if (this.useAI && this.model) {
+        try {
+          console.log('Using Gemini AI for response');
+          // Use Gemini API
+          const campusPrompt = `
 You are a helpful campus assistant for KLH University. You help students, faculty, and staff with:
 - Campus information and navigation
 - Event schedules and registration
@@ -41,40 +51,48 @@ Please provide helpful, accurate, and concise responses. If you don't know somet
 
 User query: ${message}
 
-Please respond in a friendly, professional manner as a campus assistant.
-`;
+Please respond in a friendly, professional manner as a campus assistant.`;
 
-        const result = await this.model.generateContent(campusPrompt);
-        const response = await result.response;
-        const text = response.text();
+          const result = await this.model.generateContent(campusPrompt);
+          const response = await result.response;
+          const text = response.text();
 
-        res.json({
-          message: text,
-          timestamp: new Date().toISOString(),
-          user: req.user ? {
-            id: req.user._id,
-            name: `${req.user.firstName} ${req.user.lastName}`,
-            role: req.user.role
-          } : null
-        });
-      } else {
-        // Fallback responses for common campus queries
-        const fallbackResponse = this.getFallbackResponse(message);
+          console.log('Gemini AI response generated successfully');
 
-        res.json({
-          message: fallbackResponse,
-          timestamp: new Date().toISOString(),
-          user: req.user ? {
-            id: req.user._id,
-            name: `${req.user.firstName} ${req.user.lastName}`,
-            role: req.user.role
-          } : null,
-          note: 'Using fallback responses - Gemini API not configured'
-        });
+          return res.json({
+            message: text,
+            timestamp: new Date().toISOString(),
+            source: 'ai',
+            user: req.user ? {
+              id: req.user._id,
+              name: `${req.user.firstName} ${req.user.lastName}`,
+              role: req.user.role
+            } : null
+          });
+        } catch (aiError) {
+          console.error('Gemini AI error:', aiError.message);
+          console.log('Falling back to predefined responses');
+          // Fall through to fallback responses
+        }
       }
+      // Fallback responses for common campus queries
+      console.log('Using fallback responses');
+      const fallbackResponse = this.getFallbackResponse(message);
+
+      return res.json({
+        message: fallbackResponse,
+        timestamp: new Date().toISOString(),
+        source: 'fallback',
+        user: req.user ? {
+          id: req.user._id,
+          name: `${req.user.firstName} ${req.user.lastName}`,
+          role: req.user.role
+        } : null
+      });
 
     } catch (error) {
-      console.error('Chatbot error:', error);
+      console.error('Chatbot error:', error.message);
+      console.error('Stack:', error.stack);
 
       // Fallback response if everything fails
       const fallbackResponses = [
@@ -85,10 +103,11 @@ Please respond in a friendly, professional manner as a campus assistant.
 
       const fallbackResponse = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
 
-      res.status(500).json({
+      return res.status(500).json({
         message: fallbackResponse,
         timestamp: new Date().toISOString(),
-        error: 'Chatbot service temporarily unavailable'
+        error: 'Chatbot service temporarily unavailable',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

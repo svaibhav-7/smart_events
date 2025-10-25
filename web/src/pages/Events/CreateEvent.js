@@ -37,7 +37,7 @@ const CreateEvent = () => {
     isPublic: true,
   });
 
-  const categories = ['academic', 'cultural', 'sports', 'technical', 'social', 'workshop'];
+  const categories = ['academic', 'cultural', 'sports', 'workshop', 'seminar', 'social', 'other'];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -67,14 +67,8 @@ const CreateEvent = () => {
 
       const response = await eventsAPI.createEvent(eventData);
       
-      // Show success message based on approval status
-      if (response.data.event.isApproved) {
-        navigate(`/events/${response.data.event._id}`);
-      } else {
-        // Show alert and redirect to events page
-        alert('Event created successfully! It will be visible after admin approval. You will receive an email notification.');
-        navigate('/events');
-      }
+      // Navigate to the created event
+      navigate(`/events/${response.data.event._id}`);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create event');
     } finally {

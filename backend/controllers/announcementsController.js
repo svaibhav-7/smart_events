@@ -40,12 +40,36 @@ class AnnouncementsController {
         query.targetAudience = targetAudience;
       }
 
-      // Show only active announcements (not expired)
-      query.isActive = true;
-      query.$or = [
-        { expiresAt: null },
-        { expiresAt: { $gt: new Date() } }
+      // Show only approved and active announcements
+      // Use flexible matching to handle missing fields
+      query.$and = [
+        {
+          $or: [
+            { isApproved: true },
+            { isApproved: { $exists: false } }
+          ]
+        },
+        {
+          $or: [
+            { isActive: true },
+            { isActive: { $exists: false } }
+          ]
+        }
       ];
+      
+      // Only filter expired announcements if explicitly requested to exclude them
+      // By default, show all announcements regardless of expiration
+      if (req.query.excludeExpired === 'true') {
+        query.$and.push({
+          $or: [
+            { expiresAt: null },
+            { expiresAt: { $exists: false } },
+            { expiresAt: { $gt: new Date() } }
+          ]
+        });
+      }
+
+      console.log('Fetching announcements with query:', JSON.stringify(query, null, 2));
 
       const announcements = await paginateResults(
         Announcement.find(query)
@@ -58,6 +82,8 @@ class AnnouncementsController {
 
       const total = await Announcement.countDocuments(query);
 
+      console.log(`Found ${announcements.length} announcements, total: ${total}`);
+
       res.json({
         announcements,
         totalPages: Math.ceil(total / limit),
@@ -66,7 +92,8 @@ class AnnouncementsController {
       });
     } catch (error) {
       console.error('Get announcements error:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 
@@ -105,6 +132,16 @@ class AnnouncementsController {
 
   async createAnnouncement(req, res) {
     try {
+      console.log('Creating announcement with data:', req.body);
+      console.log('User role:', req.user.role);
+      
+      // Restrict creation to faculty and admin only
+      if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        return res.status(403).json({ 
+          message: 'Access denied. Only faculty and administrators can create announcements.' 
+        });
+      }
+
       const announcementData = {
         ...req.body,
         postedBy: req.user._id
@@ -116,12 +153,28 @@ class AnnouncementsController {
       await announcement.populate('postedBy', 'firstName lastName email');
 
       // Emit real-time update
-      global.io.emit('new-announcement', announcement);
+      if (global.io) {
+        global.io.emit('new-announcement', announcement);
+      }
 
       res.status(201).json({ message: 'Announcement created successfully', announcement });
     } catch (error) {
       console.error('Create announcement error:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error details:', error.message);
+      
+      // Send more specific error message
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map(err => err.message);
+        return res.status(400).json({ 
+          message: 'Validation error', 
+          errors 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: 'Failed to create announcement',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 
@@ -145,7 +198,9 @@ class AnnouncementsController {
       ).populate('postedBy', 'firstName lastName email');
 
       // Emit real-time update
-      global.io.emit('announcement-updated', updatedAnnouncement);
+      if (global.io) {
+        global.io.emit('announcement-updated', updatedAnnouncement);
+      }
 
       res.json({ message: 'Announcement updated successfully', announcement: updatedAnnouncement });
     } catch (error) {
@@ -170,7 +225,9 @@ class AnnouncementsController {
       await Announcement.findByIdAndDelete(req.params.id);
 
       // Emit real-time update
-      global.io.emit('announcement-deleted', { announcementId: req.params.id });
+      if (global.io) {
+        global.io.emit('announcement-deleted', { announcementId: req.params.id });
+      }
 
       res.json({ message: 'Announcement deleted successfully' });
     } catch (error) {

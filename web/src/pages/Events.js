@@ -14,13 +14,11 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Alert,
 } from '@mui/material';
 import {
   Event,
   Add,
   Search,
-  FilterList,
   CalendarToday,
   LocationOn,
   Person,
@@ -40,6 +38,7 @@ const Events = () => {
 
   useEffect(() => {
     fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, statusFilter]);
 
   const fetchEvents = async () => {
@@ -102,7 +101,7 @@ const Events = () => {
     }
   };
 
-  const categories = ['all', 'academic', 'cultural', 'sports', 'technical', 'social', 'workshop'];
+  const categories = ['all', 'academic', 'cultural', 'sports', 'workshop', 'seminar', 'social', 'other'];
 
   if (loading) {
     return (

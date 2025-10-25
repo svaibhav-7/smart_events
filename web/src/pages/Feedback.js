@@ -14,35 +14,32 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Alert,
   Avatar,
-  Rating,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Feedback,
   Add,
   Search,
-  FilterList,
   ThumbUp,
   ThumbDown,
-  Person,
-  Schedule,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { feedbackAPI } from '../utils/api';
-import { useAuth } from '../contexts/AuthContext';
 
 const FeedbackPage = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [votingItem, setVotingItem] = useState(null);
 
   useEffect(() => {
     fetchFeedback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryFilter, statusFilter]);
 
   const fetchFeedback = async () => {
@@ -111,7 +108,29 @@ const FeedbackPage = () => {
     }
   };
 
-  const categories = ['all', 'academic', 'facilities', 'food', 'transport', 'other'];
+  const handleVote = async (feedbackId, voteType) => {
+    try {
+      setVotingItem(feedbackId);
+      await feedbackAPI.voteFeedback(feedbackId, voteType);
+      
+      // Refresh feedback to get updated vote counts
+      await fetchFeedback();
+    } catch (error) {
+      console.error('Error voting:', error);
+    } finally {
+      setVotingItem(null);
+    }
+  };
+
+  const categories = [
+    { value: 'all', label: 'All Categories' },
+    { value: 'suggestion', label: 'Suggestion' },
+    { value: 'complaint', label: 'Complaint' },
+    { value: 'appreciation', label: 'Appreciation' },
+    { value: 'bug-report', label: 'Bug Report' },
+    { value: 'feature-request', label: 'Feature Request' },
+    { value: 'other', label: 'Other' },
+  ];
 
   if (loading) {
     return (
@@ -158,8 +177,8 @@ const FeedbackPage = () => {
                   onChange={(e) => setCategoryFilter(e.target.value)}
                 >
                   {categories.map(category => (
-                    <MenuItem key={category} value={category}>
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    <MenuItem key={category.value} value={category.value}>
+                      {category.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -261,19 +280,34 @@ const FeedbackPage = () => {
                       </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
-                        <ThumbUp fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {item.upvotes?.length || 0}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <ThumbDown fontSize="small" color="action" sx={{ mr: 0.5 }} />
-                        <Typography variant="body2" color="text.secondary">
-                          {item.downvotes?.length || 0}
-                        </Typography>
-                      </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Tooltip title="Like this feedback">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleVote(item._id, 'up')}
+                          disabled={votingItem === item._id}
+                          color={item.upvotes?.some(v => v._id === votingItem) ? 'primary' : 'default'}
+                        >
+                          <ThumbUp fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.upvotes?.length || 0}
+                      </Typography>
+
+                      <Tooltip title="Dislike this feedback">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleVote(item._id, 'down')}
+                          disabled={votingItem === item._id}
+                          color={item.downvotes?.some(v => v._id === votingItem) ? 'error' : 'default'}
+                        >
+                          <ThumbDown fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.downvotes?.length || 0}
+                      </Typography>
                     </Box>
                   </Box>
 

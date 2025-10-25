@@ -52,9 +52,7 @@ const announcementSchema = new mongoose.Schema({
   },
   isApproved: {
     type: Boolean,
-    default: function() {
-      return this.postedBy.role === 'admin';
-    }
+    default: true // Auto-approve all announcements
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,

@@ -38,13 +38,65 @@ const Register = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+
+  // Auto-detect role based on email
+  const detectRoleFromEmail = (email) => {
+    if (!email || !email.includes('@klh.edu.in')) {
+      return null;
+    }
+    
+    // Extract the part before @klh.edu.in
+    const localPart = email.split('@')[0];
+    
+    // Check if there's a number in the local part (student email pattern)
+    const hasNumber = /\d/.test(localPart);
+    
+    if (hasNumber) {
+      // Has number = student
+      return 'student';
+    } else {
+      // No number = faculty or admin (show selection)
+      return null;
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    
+    // Handle email change to auto-detect role
+    if (name === 'email') {
+      const detectedRole = detectRoleFromEmail(value);
+      if (detectedRole === 'student') {
+        // Auto-set to student
+        setFormData({
+          ...formData,
+          [name]: value,
+          role: 'student',
+        });
+        setShowRoleSelection(false);
+      } else if (value.includes('@klh.edu.in') && detectedRole === null) {
+        // Show role selection for faculty/admin
+        setFormData({
+          ...formData,
+          [name]: value,
+          role: 'faculty', // Default to faculty
+        });
+        setShowRoleSelection(true);
+      } else {
+        // Reset if not klh email
+        setFormData({
+          ...formData,
+          [name]: value,
+        });
+        setShowRoleSelection(false);
+      }
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -180,21 +232,31 @@ const Register = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel id="role-label">Role</InputLabel>
-                  <Select
-                    labelId="role-label"
-                    id="role"
-                    name="role"
-                    value={formData.role}
+                {showRoleSelection ? (
+                  <FormControl fullWidth required>
+                    <InputLabel id="role-label">Role</InputLabel>
+                    <Select
+                      labelId="role-label"
+                      id="role"
+                      name="role"
+                      value={formData.role}
+                      label="Role"
+                      onChange={handleChange}
+                    >
+                      <MenuItem value="faculty">Faculty</MenuItem>
+                      <MenuItem value="admin">Administrator</MenuItem>
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <TextField
+                    fullWidth
+                    disabled
+                    id="role-display"
                     label="Role"
-                    onChange={handleChange}
-                  >
-                    <MenuItem value="student">Student</MenuItem>
-                    <MenuItem value="faculty">Faculty</MenuItem>
-                    <MenuItem value="admin">Administrator</MenuItem>
-                  </Select>
-                </FormControl>
+                    value={formData.role === 'student' ? 'Student (Auto-detected)' : 'Role'}
+                    helperText={formData.role === 'student' ? 'Detected from email format' : ''}
+                  />
+                )}
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField

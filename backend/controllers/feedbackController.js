@@ -13,15 +13,19 @@ class FeedbackController {
         priority,
         status,
         search,
-        sort = 'createdAt'
+        sort = 'createdAt',
+        myFeedback // Add query param to filter user's own feedback
       } = req.query;
 
       let query = {};
 
-      // Users can only see their own feedback unless they're faculty/admin
-      if (req.user.role === 'student') {
+      // Optional filter: show only user's own feedback if requested
+      if (myFeedback === 'true') {
         query.submittedBy = req.user._id;
       }
+      // Otherwise, show all public feedback or all if faculty/admin
+      // Students can see all public feedback + their own
+      // Faculty/Admin can see everything
 
       // Filter by category
       if (category && category !== 'all') {
@@ -151,10 +155,10 @@ class FeedbackController {
   }
 
   async createFeedback(req, res) {
-    try {
-      const feedbackData = {
+    try {      const feedbackData = {
         ...req.body,
-        submittedBy: req.user._id
+        submittedBy: req.user._id,
+        isPublic: req.body.isPublic !== undefined ? req.body.isPublic : true // Default to public
       };
 
       const feedback = new Feedback(feedbackData);
@@ -163,7 +167,9 @@ class FeedbackController {
       await feedback.populate('submittedBy', 'firstName lastName email');
 
       // Emit real-time update
-      global.io.emit('new-feedback', feedback);
+      if (global.io) {
+        global.io.emit('new-feedback', feedback);
+      }
 
       res.status(201).json({ message: 'Feedback submitted successfully', feedback });
     } catch (error) {
@@ -180,24 +186,38 @@ class FeedbackController {
         return res.status(404).json({ message: 'Feedback not found' });
       }
 
-      // Check if user is the submitter
-      if (feedback.submittedBy.toString() !== req.user._id.toString()) {
+      // Check permissions
+      const isOwner = feedback.submittedBy.toString() === req.user._id.toString();
+      const isStaff = req.user.role === 'faculty' || req.user.role === 'admin';
+
+      // Students can only update their own open feedback
+      if (!isStaff && !isOwner) {
         return res.status(403).json({ message: 'Access denied' });
       }
 
-      // Check if feedback is still open
-      if (feedback.status !== 'open') {
+      // Students cannot update closed feedback
+      if (!isStaff && feedback.status !== 'open') {
         return res.status(400).json({ message: 'Cannot update closed feedback' });
+      }
+
+      // Only staff can update status and priority
+      if (!isStaff && (req.body.status || req.body.priority)) {
+        return res.status(403).json({ message: 'Only faculty and admin can update status and priority' });
       }
 
       const updatedFeedback = await Feedback.findByIdAndUpdate(
         req.params.id,
         req.body,
         { new: true }
-      ).populate('submittedBy', 'firstName lastName email');
+      )
+        .populate('submittedBy', 'firstName lastName email')
+        .populate('assignedTo', 'firstName lastName email')
+        .populate('responses.respondedBy', 'firstName lastName email');
 
       // Emit real-time update
-      global.io.emit('feedback-updated', updatedFeedback);
+      if (global.io) {
+        global.io.emit('feedback-updated', updatedFeedback);
+      }
 
       res.json({ message: 'Feedback updated successfully', feedback: updatedFeedback });
     } catch (error) {

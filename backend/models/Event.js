@@ -84,9 +84,7 @@ const eventSchema = new mongoose.Schema({
   },
   isApproved: {
     type: Boolean,
-    default: function() {
-      return this.organizer.role === 'admin' || this.organizer.role === 'faculty';
-    }
+    default: false
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,

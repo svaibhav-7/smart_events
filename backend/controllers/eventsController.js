@@ -46,7 +46,35 @@ class EventsController {
           break;
       }
 
-      query.isActive = true;
+      // Build $and conditions
+      query.$and = [];
+      
+      // Only show approved events (unless admin/faculty)
+      if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'faculty')) {
+        // For unauthenticated users or students, show approved events
+        query.$and.push({
+          $or: [
+            { isApproved: true },
+            { isApproved: { $exists: false } }
+          ]
+        });
+      }
+      
+      // Show only active events (default to true if not set)
+      query.$and.push({
+        $or: [
+          { isActive: true },
+          { isActive: { $exists: false } }
+        ]
+      });
+      
+      // Remove $and if empty
+      if (query.$and.length === 0) {
+        delete query.$and;
+      }
+
+      console.log('Fetching events with query:', JSON.stringify(query, null, 2));
+      console.log('User:', req.user ? `${req.user.firstName} (${req.user.role})` : 'Not authenticated');
 
       const events = await paginateResults(
         Event.find(query)
@@ -59,6 +87,8 @@ class EventsController {
 
       const total = await Event.countDocuments(query);
 
+      console.log(`Found ${events.length} events, total: ${total}`);
+
       res.json({
         events,
         totalPages: Math.ceil(total / limit),
@@ -67,7 +97,8 @@ class EventsController {
       });
     } catch (error) {
       console.error('Get events error:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error stack:', error.stack);
+      res.status(500).json({ message: 'Server error', error: error.message });
     }
   }
 
@@ -91,10 +122,20 @@ class EventsController {
 
   async createEvent(req, res) {
     try {
+      console.log('Creating event with data:', req.body);
+      console.log('User role:', req.user.role);
+      
+      // Restrict creation to faculty and admin only
+      if (req.user.role !== 'faculty' && req.user.role !== 'admin') {
+        return res.status(403).json({ 
+          message: 'Access denied. Only faculty and administrators can create events.' 
+        });
+      }
+
       const eventData = {
         ...req.body,
         organizer: req.user._id,
-        isApproved: req.user.role === 'admin' // Auto-approve for admins
+        isApproved: true // Auto-approve for both faculty and admin
       };
 
       const event = new Event(eventData);
@@ -103,33 +144,32 @@ class EventsController {
       // Populate the event for response
       await event.populate('organizer', 'firstName lastName email');
 
-      // Send notification to admins if not auto-approved
-      if (!event.isApproved) {
-        await notifyAdmins(
-          'New Event Pending Approval',
-          'A new event has been submitted and requires your approval.',
-          {
-            title: event.title,
-            description: event.description,
-            category: event.category,
-            submittedBy: `${req.user.firstName} ${req.user.lastName}`,
-            link: `${process.env.CLIENT_URL}/admin/approvals`
-          }
-        );
+      // Emit real-time update
+      if (global.io) {
+        global.io.emit('new-event', event);
       }
 
-      // Emit real-time update
-      global.io.emit('new-event', event);
-
       res.status(201).json({ 
-        message: event.isApproved 
-          ? 'Event created successfully' 
-          : 'Event created and pending approval',
+        message: 'Event created successfully',
         event 
       });
     } catch (error) {
       console.error('Create event error:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error details:', error.message);
+      
+      // Send more specific error message
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map(err => err.message);
+        return res.status(400).json({ 
+          message: 'Validation error', 
+          errors 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: 'Failed to create event',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 

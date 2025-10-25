@@ -48,6 +48,8 @@ const Dashboard = () => {
     try {
       setLoading(true);
       
+      console.log('Fetching dashboard data...');
+      
       // Fetch stats
       const [eventsRes, lostFoundRes, feedbackRes, clubsRes, announcementsRes] = await Promise.all([
         eventsAPI.getEvents({ limit: 1 }),
@@ -56,6 +58,11 @@ const Dashboard = () => {
         clubsAPI.getClubs({ limit: 1 }),
         announcementsAPI.getAnnouncements({ limit: 1 }),
       ]);
+
+      console.log('Dashboard stats responses:', {
+        events: eventsRes.data,
+        announcements: announcementsRes.data,
+      });
 
       setStats({
         events: eventsRes.data.total || 0,
@@ -67,14 +74,31 @@ const Dashboard = () => {
 
       // Fetch recent events and announcements
       const [recentEventsRes, announcementsRes2] = await Promise.all([
-        eventsAPI.getEvents({ limit: 5, sort: 'startDate' }),
-        announcementsAPI.getAnnouncements({ limit: 5 }),
+        eventsAPI.getEvents({ limit: 5, sort: '-startDate' }),
+        announcementsAPI.getAnnouncements({ limit: 5, sort: '-createdAt' }),
       ]);
+
+      console.log('Recent data:', {
+        events: recentEventsRes.data.events?.length || 0,
+        announcements: announcementsRes2.data.announcements?.length || 0,
+      });
 
       setRecentEvents(recentEventsRes.data.events || []);
       setRecentAnnouncements(announcementsRes2.data.announcements || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      
+      // Set empty data on error to prevent undefined errors
+      setStats({
+        events: 0,
+        lostItems: 0,
+        feedback: 0,
+        clubs: 0,
+        announcements: 0,
+      });
+      setRecentEvents([]);
+      setRecentAnnouncements([]);
     } finally {
       setLoading(false);
     }
@@ -279,38 +303,50 @@ const Dashboard = () => {
                 </Button>
               </Box>
               <List>
-                {recentEvents.slice(0, 3).map((event, index) => (
-                  <React.Fragment key={event._id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar>
-                          <Event />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={event.title}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {formatDate(event.startDate)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              <LocationOn fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
-                              {event.venue}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      <Chip
-                        size="small"
-                        label={event.category}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    </ListItem>
-                    {index < 2 && <Divider />}
-                  </React.Fragment>
-                ))}
+                {recentEvents.length === 0 ? (
+                  <ListItem>
+                    <ListItemText
+                      primary="No events yet"
+                      secondary="Check back later for upcoming events"
+                    />
+                  </ListItem>
+                ) : (
+                  recentEvents.slice(0, 3).map((event, index) => (
+                    <React.Fragment key={event._id}>
+                      <ListItem
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/events/${event._id}`)}
+                      >
+                        <ListItemAvatar>
+                          <Avatar>
+                            <Event />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={event.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                {formatDate(event.startDate)}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                <LocationOn fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                                {event.venue}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Chip
+                          size="small"
+                          label={event.category}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      </ListItem>
+                      {index < 2 && index < recentEvents.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))
+                )}
               </List>
             </CardContent>
           </Card>
@@ -326,37 +362,49 @@ const Dashboard = () => {
                 </Button>
               </Box>
               <List>
-                {recentAnnouncements.slice(0, 3).map((announcement, index) => (
-                  <React.Fragment key={announcement._id}>
-                    <ListItem>
-                      <ListItemAvatar>
-                        <Avatar>
-                          <Campaign />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={announcement.title}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {announcement.content.substring(0, 100)}...
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {formatDate(announcement.createdAt)}
-                            </Typography>
-                          </Box>
-                        }
-                      />
-                      <Chip
-                        size="small"
-                        label={announcement.priority}
-                        color={announcement.priority === 'urgent' ? 'error' : 'default'}
-                        variant="outlined"
-                      />
-                    </ListItem>
-                    {index < 2 && <Divider />}
-                  </React.Fragment>
-                ))}
+                {recentAnnouncements.length === 0 ? (
+                  <ListItem>
+                    <ListItemText
+                      primary="No announcements yet"
+                      secondary="Check back later for campus updates"
+                    />
+                  </ListItem>
+                ) : (
+                  recentAnnouncements.slice(0, 3).map((announcement, index) => (
+                    <React.Fragment key={announcement._id}>
+                      <ListItem
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/announcements/${announcement._id}`)}
+                      >
+                        <ListItemAvatar>
+                          <Avatar>
+                            <Campaign />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={announcement.title}
+                          secondary={
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                {announcement.content.substring(0, 100)}...
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {formatDate(announcement.createdAt)}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <Chip
+                          size="small"
+                          label={announcement.priority}
+                          color={announcement.priority === 'urgent' ? 'error' : 'default'}
+                          variant="outlined"
+                        />
+                      </ListItem>
+                      {index < 2 && index < recentAnnouncements.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))
+                )}
               </List>
             </CardContent>
           </Card>

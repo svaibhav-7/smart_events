@@ -38,16 +38,35 @@ const lostFoundSchema = new mongoose.Schema({
     required: true
   },
   contactInfo: {
-    email: String,
-    phone: String
+    email: {
+      type: String,
+      trim: true
+    },
+    phone: {
+      type: String,
+      trim: true
+    },
+    alternateContact: {
+      type: String,
+      trim: true
+    },
+    preferredContactMethod: {
+      type: String,
+      enum: ['email', 'phone', 'both'],
+      default: 'email'
+    }
   },
   images: [{
     type: String
   }],
   status: {
     type: String,
-    enum: ['open', 'claimed', 'resolved', 'expired'],
+    enum: ['open', 'claimed', 'resolved', 'expired', 'matched'],
     default: 'open'
+  },
+  matchedWith: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LostFound'
   },
   claimedBy: {
     type: mongoose.Schema.Types.ObjectId,

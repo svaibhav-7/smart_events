@@ -26,13 +26,13 @@ const CreateAnnouncement = () => {
     title: '',
     content: '',
     category: 'academic',
-    priority: 'normal',
+    priority: 'medium',
     targetAudience: 'all',
     expiresAt: '',
   });
 
-  const categories = ['academic', 'administrative', 'events', 'facilities', 'safety', 'other'];
-  const priorities = ['low', 'normal', 'high', 'urgent'];
+  const categories = ['general', 'academic', 'administrative', 'emergency', 'event', 'maintenance', 'other'];
+  const priorities = ['low', 'medium', 'high', 'urgent'];
   const audiences = ['all', 'students', 'faculty', 'staff'];
 
   const handleChange = (e) => {

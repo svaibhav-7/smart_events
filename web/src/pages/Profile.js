@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -16,11 +16,10 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
-  Person,
-  Email,
-  Phone,
   School,
   Badge,
   Work,
@@ -28,6 +27,8 @@ import {
   Edit,
   Save,
   Cancel,
+  PhotoCamera,
+  Delete,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -35,12 +36,78 @@ const Profile = () => {
   const { user, updateProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [profilePicture, setProfilePicture] = useState(user?.profilePicture || null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     phone: user?.phone || '',
     department: user?.department || '',
   });
+
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size must be less than 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result;
+        
+        // Update profile with new image
+        const result = await updateProfile({ profilePicture: base64Image });
+        
+        if (result.success) {
+          setProfilePicture(base64Image);
+          setSuccess('Profile picture updated successfully');
+          setTimeout(() => setSuccess(''), 3000);
+        } else {
+          setError('Failed to update profile picture');
+        }
+        setUploadingImage(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError('Failed to upload image');
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    try {
+      setUploadingImage(true);
+      const result = await updateProfile({ profilePicture: null });
+      
+      if (result.success) {
+        setProfilePicture(null);
+        setSuccess('Profile picture removed successfully');
+        setTimeout(() => setSuccess(''), 3000);
+      }
+      setUploadingImage(false);
+    } catch (err) {
+      setError('Failed to remove profile picture');
+      setUploadingImage(false);
+    }
+  };
 
   const handleChange = (field, value) => {
     setFormData({
@@ -52,12 +119,17 @@ const Profile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
 
     const result = await updateProfile(formData);
     setLoading(false);
 
     if (result.success) {
       setEditing(false);
+      setSuccess('Profile updated successfully');
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError('Failed to update profile');
     }
   };
 
@@ -84,19 +156,6 @@ const Profile = () => {
     }
   };
 
-  const getRoleIcon = (role) => {
-    switch (role) {
-      case 'admin':
-        return 'admin-panel-settings';
-      case 'faculty':
-        return 'school';
-      case 'student':
-        return 'person';
-      default:
-        return 'person';
-    }
-  };
-
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -108,23 +167,86 @@ const Profile = () => {
         </Typography>
       </Box>
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+          {success}
+        </Alert>
+      )}
+
       <Grid container spacing={3}>
         {/* Profile Overview */}
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{
-                  width: 120,
-                  height: 120,
-                  mx: 'auto',
-                  mb: 2,
-                  fontSize: '3rem',
-                  bgcolor: 'primary.main'
-                }}
-              >
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </Avatar>
+              <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                <Avatar
+                  src={profilePicture || user?.profilePicture}
+                  sx={{
+                    width: 120,
+                    height: 120,
+                    mx: 'auto',
+                    mb: 2,
+                    fontSize: '3rem',
+                    bgcolor: 'primary.main'
+                  }}
+                >
+                  {!profilePicture && !user?.profilePicture && (
+                    <>{user?.firstName?.[0]}{user?.lastName?.[0]}</>
+                  )}
+                </Avatar>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleImageUpload}
+                />
+                
+                <Box sx={{ position: 'absolute', bottom: 16, right: -10 }}>
+                  <Tooltip title="Upload photo">
+                    <IconButton
+                      color="primary"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      sx={{
+                        bgcolor: 'background.paper',
+                        boxShadow: 2,
+                        '&:hover': { bgcolor: 'background.paper' }
+                      }}
+                    >
+                      {uploadingImage ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <PhotoCamera />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                  {(profilePicture || user?.profilePicture) && (
+                    <Tooltip title="Remove photo">
+                      <IconButton
+                        color="error"
+                        onClick={handleRemoveImage}
+                        disabled={uploadingImage}
+                        sx={{
+                          bgcolor: 'background.paper',
+                          boxShadow: 2,
+                          ml: 1,
+                          '&:hover': { bgcolor: 'background.paper' }
+                        }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
 
               <Typography variant="h5" gutterBottom>
                 {user?.firstName} {user?.lastName}

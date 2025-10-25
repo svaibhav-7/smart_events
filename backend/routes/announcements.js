@@ -1,12 +1,12 @@
 const express = require('express');
 const { body } = require('express-validator');
 const announcementsController = require('../controllers/announcementsController');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, authorize, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Public routes
-router.get('/', announcementsController.getAnnouncements);
+// Public routes with optional auth
+router.get('/', optionalAuth, announcementsController.getAnnouncements);
 router.get('/:id', announcementsController.getAnnouncementById);
 
 // Protected routes

@@ -48,6 +48,29 @@ module.exports = (app) => {
             console.log('⚠️ Domain restriction disabled - allowing all emails');
           }
 
+          // Auto-detect role from email format
+          const detectRoleFromEmail = (email) => {
+            if (!email || !email.includes('@')) {
+              return 'student';
+            }
+            
+            // Extract the part before @
+            const localPart = email.split('@')[0];
+            
+            // Check if there's a number in the local part (student email pattern)
+            const hasNumber = /\d/.test(localPart);
+            
+            if (hasNumber) {
+              return 'student';
+            } else {
+              // No number = faculty (can be changed by admin later)
+              return 'faculty';
+            }
+          };
+
+          const detectedRole = detectRoleFromEmail(email);
+          console.log('🔍 Detected role from email:', detectedRole);
+
           // Check if user already exists
           let existingUser = await User.findOne({ email: email });
 
@@ -62,19 +85,19 @@ module.exports = (app) => {
           }
 
           // Create new user
-          console.log('✅ Creating new user:', email);
+          console.log('✅ Creating new user:', email, 'with role:', detectedRole);
           const newUser = new User({
             googleId: profile.id,
             firstName: profile.name.givenName,
             lastName: profile.name.familyName,
             email: email,
-            role: 'student', // Default role for Google OAuth users
+            role: detectedRole, // Auto-detected role
             isVerified: true, // Google accounts are pre-verified
             authProvider: 'google',
           });
 
           const savedUser = await newUser.save();
-          console.log('✅ User created successfully:', email);
+          console.log('✅ User created successfully:', email, 'as', detectedRole);
           return done(null, savedUser);
         } catch (error) {
           console.error('❌ Google OAuth error:', error);

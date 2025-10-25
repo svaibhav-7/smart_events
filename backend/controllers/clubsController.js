@@ -82,10 +82,13 @@ class ClubsController {
 
   async createClub(req, res) {
     try {
+      console.log('Creating club with data:', req.body);
+      
       const clubData = {
         ...req.body,
         advisor: req.user._id,
-        isApproved: false // All clubs need approval
+        isApproved: false, // All clubs need approval
+        establishedYear: req.body.establishedYear || new Date().getFullYear() // Default to current year
       };
 
       const club = new Club(clubData);
@@ -93,21 +96,27 @@ class ClubsController {
 
       await club.populate('advisor', 'firstName lastName email');
 
-      // Send notification to admins
-      await notifyAdmins(
-        'New Club Pending Approval',
-        'A new club has been submitted and requires your approval.',
-        {
-          title: club.name,
-          description: club.description,
-          category: club.category,
-          submittedBy: `${req.user.firstName} ${req.user.lastName}`,
-          link: `${process.env.CLIENT_URL}/admin/approvals`
-        }
-      );
+      // Send notification to admins (don't block if it fails)
+      try {
+        await notifyAdmins(
+          'New Club Pending Approval',
+          'A new club has been submitted and requires your approval.',
+          {
+            title: club.name,
+            description: club.description,
+            category: club.category,
+            submittedBy: `${req.user.firstName} ${req.user.lastName}`,
+            link: `${process.env.CLIENT_URL}/admin/approvals`
+          }
+        );
+      } catch (notifyError) {
+        console.error('Notification error (non-blocking):', notifyError.message);
+      }
 
       // Emit real-time update
-      global.io.emit('new-club', club);
+      if (global.io) {
+        global.io.emit('new-club', club);
+      }
 
       res.status(201).json({ 
         message: 'Club created and pending approval', 
@@ -115,7 +124,27 @@ class ClubsController {
       });
     } catch (error) {
       console.error('Create club error:', error);
-      res.status(500).json({ message: 'Server error' });
+      console.error('Error details:', error.message);
+      
+      // Send more specific error message
+      if (error.name === 'ValidationError') {
+        const errors = Object.values(error.errors).map(err => err.message);
+        return res.status(400).json({ 
+          message: 'Validation error', 
+          errors 
+        });
+      }
+      
+      if (error.code === 11000) {
+        return res.status(400).json({ 
+          message: 'A club with this name already exists' 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: 'Failed to create club',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 

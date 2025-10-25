@@ -44,14 +44,26 @@ const Approvals = () => {
   const fetchPendingItems = async () => {
     try {
       setLoading(true);
+      setError('');
+      
+      console.log('Fetching pending items...');
+      
       const [eventsResponse, clubsResponse] = await Promise.all([
         eventsAPI.getPendingEvents(),
         clubsAPI.getPendingClubs(),
       ]);
+      
+      console.log('Pending Events Response:', eventsResponse.data);
+      console.log('Pending Clubs Response:', clubsResponse.data);
+      
       setPendingEvents(eventsResponse.data.events || []);
       setPendingClubs(clubsResponse.data.clubs || []);
+      
+      console.log('Events count:', eventsResponse.data.events?.length || 0);
+      console.log('Clubs count:', clubsResponse.data.clubs?.length || 0);
     } catch (err) {
-      setError('Failed to load pending items');
+      console.error('Error fetching pending items:', err);
+      setError(err.response?.data?.message || 'Failed to load pending items');
     } finally {
       setLoading(false);
     }
