@@ -22,6 +22,7 @@ import {
   ExpandLess,
   ExpandMore,
   School,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -105,6 +106,14 @@ const Sidebar = () => {
   ];
 
   // Add admin-specific items
+  if (user?.role === 'admin' || user?.role === 'faculty') {
+    menuItems.push({
+      text: 'Approvals',
+      icon: <CheckCircle />,
+      path: '/admin/approvals',
+    });
+  }
+
   if (user?.role === 'admin') {
     menuItems.push({
       text: 'Administration',

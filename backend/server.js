@@ -3,12 +3,27 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 const socketIo = require('socket.io');
 const http = require('http');
 require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Session middleware for OAuth
+app.use(session({
+  secret: process.env.JWT_SECRET || 'fallback-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport after session middleware
+require('./config/passport')(app);
 
 // Middleware
 app.use(helmet());

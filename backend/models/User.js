@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   studentId: {
     type: String,
     required: function() {
-      return this.role === 'student';
+      return this.role === 'student' && this.authProvider === 'local';
     },
     unique: true,
     sparse: true
@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
   employeeId: {
     type: String,
     required: function() {
-      return this.role === 'faculty' || this.role === 'admin';
+      return (this.role === 'faculty' || this.role === 'admin') && this.authProvider === 'local';
     },
     unique: true,
     sparse: true
@@ -27,7 +27,9 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      return this.authProvider === 'local';
+    },
     minlength: 6
   },
   firstName: {
@@ -48,22 +50,32 @@ const userSchema = new mongoose.Schema({
   department: {
     type: String,
     required: function() {
-      return this.role !== 'admin';
+      return this.role !== 'admin' && this.authProvider === 'local';
     }
   },
   year: {
     type: String,
     required: function() {
-      return this.role === 'student';
+      return this.role === 'student' && this.authProvider === 'local';
     }
   },
   profilePicture: {
     type: String,
     default: null
   },
-  phone: {
+  googleId: {
     type: String,
-    trim: true
+    unique: true,
+    sparse: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
   },
   isActive: {
     type: Boolean,
@@ -85,9 +97,12 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password before saving
+// Hash password before saving (only for local auth users)
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  // Only hash password if it's a local auth user and password is modified
+  if (this.authProvider !== 'local' || !this.isModified('password')) {
+    return next();
+  }
 
   try {
     const salt = await bcrypt.genSalt(12);
@@ -98,8 +113,12 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
+// Compare password method (only for local auth users)
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  // Google OAuth users don't have passwords to compare
+  if (this.authProvider === 'google') {
+    return false;
+  }
   return await bcrypt.compare(candidatePassword, this.password);
 };
 

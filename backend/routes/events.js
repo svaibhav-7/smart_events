@@ -21,4 +21,9 @@ router.delete('/:id/register', auth, eventsController.unregisterFromEvent);
 // User events
 router.get('/user/events', auth, eventsController.getUserEvents);
 
+// Admin approval routes
+router.get('/pending', auth, eventsController.getPendingEvents);
+router.post('/:id/approve', auth, eventsController.approveEvent);
+router.post('/:id/reject', auth, eventsController.rejectEvent);
+
 module.exports = router;

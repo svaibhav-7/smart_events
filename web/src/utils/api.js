@@ -61,7 +61,10 @@ export const eventsAPI = {
   deleteEvent: (id) => api.delete(`/events/${id}`),
   registerForEvent: (id) => api.post(`/events/${id}/register`),
   unregisterFromEvent: (id) => api.delete(`/events/${id}/register`),
-  getUserEvents: () => api.get('/events/user'),
+  getUserEvents: () => api.get('/events/user/events'),
+  getPendingEvents: (params) => api.get('/events/pending', { params }),
+  approveEvent: (id) => api.post(`/events/${id}/approve`),
+  rejectEvent: (id) => api.post(`/events/${id}/reject`),
 };
 
 // Lost & Found API
@@ -98,6 +101,9 @@ export const clubsAPI = {
   getUserClubs: () => api.get('/clubs/user'),
   updateMemberRole: (clubId, memberId, role) => 
     api.put(`/clubs/${clubId}/members/${memberId}`, { role }),
+  getPendingClubs: (params) => api.get('/clubs/pending', { params }),
+  approveClub: (id) => api.post(`/clubs/${id}/approve`),
+  rejectClub: (id) => api.post(`/clubs/${id}/reject`),
 };
 
 // Announcements API

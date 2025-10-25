@@ -23,5 +23,8 @@ router.get('/user/clubs', auth, clubsController.getUserClubs);
 
 // Admin routes
 router.put('/:clubId/members/:memberId', auth, clubsController.updateMemberRole);
+router.get('/pending', auth, clubsController.getPendingClubs);
+router.post('/:id/approve', auth, clubsController.approveClub);
+router.post('/:id/reject', auth, clubsController.rejectClub);
 
 module.exports = router;

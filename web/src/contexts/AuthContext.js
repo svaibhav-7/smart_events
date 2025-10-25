@@ -101,6 +101,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = () => {
+    // Redirect to backend Google OAuth endpoint
+    window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/google`;
+  };
+
+  const handleGoogleCallback = async (token, userData) => {
+    try {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Failed to process Google authentication' };
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -110,6 +126,8 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     changePassword,
     updateFcmToken,
+    loginWithGoogle,
+    handleGoogleCallback,
     isAuthenticated: !!user,
   };
 

@@ -1,6 +1,7 @@
 const Club = require('../models/Club');
 const User = require('../models/User');
 const { paginateResults } = require('../utils/helpers');
+const { notifyAdmins, notifyClubCreator } = require('../utils/notifications');
 
 class ClubsController {
   async getClubs(req, res) {
@@ -83,7 +84,8 @@ class ClubsController {
     try {
       const clubData = {
         ...req.body,
-        advisor: req.user._id
+        advisor: req.user._id,
+        isApproved: false // All clubs need approval
       };
 
       const club = new Club(clubData);
@@ -91,10 +93,26 @@ class ClubsController {
 
       await club.populate('advisor', 'firstName lastName email');
 
+      // Send notification to admins
+      await notifyAdmins(
+        'New Club Pending Approval',
+        'A new club has been submitted and requires your approval.',
+        {
+          title: club.name,
+          description: club.description,
+          category: club.category,
+          submittedBy: `${req.user.firstName} ${req.user.lastName}`,
+          link: `${process.env.CLIENT_URL}/admin/approvals`
+        }
+      );
+
       // Emit real-time update
       global.io.emit('new-club', club);
 
-      res.status(201).json({ message: 'Club created successfully', club });
+      res.status(201).json({ 
+        message: 'Club created and pending approval', 
+        club 
+      });
     } catch (error) {
       console.error('Create club error:', error);
       res.status(500).json({ message: 'Server error' });
@@ -311,6 +329,106 @@ class ClubsController {
       res.json({ message: 'Member role updated successfully', club });
     } catch (error) {
       console.error('Update member role error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  async approveClub(req, res) {
+    try {
+      const club = await Club.findById(req.params.id)
+        .populate('advisor', 'firstName lastName email');
+
+      if (!club) {
+        return res.status(404).json({ message: 'Club not found' });
+      }
+
+      // Check if user is admin
+      if (req.user.role !== 'admin' && req.user.role !== 'faculty') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      club.isApproved = true;
+      club.approvedBy = req.user._id;
+      club.approvedAt = new Date();
+      await club.save();
+
+      // Notify club creator
+      await notifyClubCreator(
+        club,
+        'approved',
+        `${req.user.firstName} ${req.user.lastName}`
+      );
+
+      // Emit real-time update
+      global.io.emit('club-approved', club);
+
+      res.json({ message: 'Club approved successfully', club });
+    } catch (error) {
+      console.error('Approve club error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  async rejectClub(req, res) {
+    try {
+      const club = await Club.findById(req.params.id)
+        .populate('advisor', 'firstName lastName email');
+
+      if (!club) {
+        return res.status(404).json({ message: 'Club not found' });
+      }
+
+      // Check if user is admin
+      if (req.user.role !== 'admin' && req.user.role !== 'faculty') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      // Notify club creator before deletion
+      await notifyClubCreator(
+        club,
+        'rejected',
+        `${req.user.firstName} ${req.user.lastName}`
+      );
+
+      await Club.findByIdAndDelete(req.params.id);
+
+      // Emit real-time update
+      global.io.emit('club-rejected', { clubId: req.params.id });
+
+      res.json({ message: 'Club rejected and removed' });
+    } catch (error) {
+      console.error('Reject club error:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+
+  async getPendingClubs(req, res) {
+    try {
+      const { page = 1, limit = 10 } = req.query;
+
+      // Check if user is admin
+      if (req.user.role !== 'admin' && req.user.role !== 'faculty') {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      const clubs = await paginateResults(
+        Club.find({ isApproved: false, isActive: true })
+          .populate('advisor', 'firstName lastName email department')
+          .sort({ createdAt: -1 }),
+        page,
+        limit
+      );
+
+      const total = await Club.countDocuments({ isApproved: false, isActive: true });
+
+      res.json({
+        clubs,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total
+      });
+    } catch (error) {
+      console.error('Get pending clubs error:', error);
       res.status(500).json({ message: 'Server error' });
     }
   }

@@ -10,15 +10,16 @@ import {
   Link,
   Grid,
   Container,
+  Divider,
 } from '@mui/material';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { School } from '@mui/icons-material';
+import { School, Google } from '@mui/icons-material';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -27,6 +28,15 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const from = location.state?.from?.pathname || '/';
+
+  // Check for OAuth error in URL
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const errorParam = params.get('error');
+    if (errorParam === 'auth_failed') {
+      setError('Google authentication failed. Please make sure you are using your @klh.edu.in email address.');
+    }
+  }, [location]);
 
   const handleChange = (e) => {
     setFormData({
@@ -111,6 +121,30 @@ const Login = () => {
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Sign In'}
+            </Button>
+
+            <Divider sx={{ my: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                OR
+              </Typography>
+            </Divider>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<Google />}
+              onClick={loginWithGoogle}
+              sx={{
+                mb: 2,
+                borderColor: '#4285f4',
+                color: '#4285f4',
+                '&:hover': {
+                  borderColor: '#357ae8',
+                  backgroundColor: 'rgba(66, 133, 244, 0.04)',
+                },
+              }}
+            >
+              Continue with Google (@klh.edu.in)
             </Button>
 
             <Grid container spacing={2}>

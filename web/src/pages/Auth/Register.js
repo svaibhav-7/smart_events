@@ -14,14 +14,15 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Divider,
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { School } from '@mui/icons-material';
+import { School, Google } from '@mui/icons-material';
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -271,6 +272,30 @@ const Register = () => {
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+            </Button>
+
+            <Divider sx={{ my: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                OR
+              </Typography>
+            </Divider>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<Google />}
+              onClick={loginWithGoogle}
+              sx={{
+                mb: 2,
+                borderColor: '#4285f4',
+                color: '#4285f4',
+                '&:hover': {
+                  borderColor: '#357ae8',
+                  backgroundColor: 'rgba(66, 133, 244, 0.04)',
+                },
+              }}
+            >
+              Sign up with Google (@klh.edu.in)
             </Button>
 
             <Grid container justifyContent="flex-end">
